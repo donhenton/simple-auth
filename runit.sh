@@ -1,0 +1,1 @@
+mvn clean jetty:run-exploded -Pcss  -DskipTests
