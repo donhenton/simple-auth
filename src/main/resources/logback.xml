@@ -40,24 +40,18 @@
         <level value="ERROR"/>
     </logger>
      <logger name="httpclient.wire.header">
-        <level value="DEBUG"/>
+        <level value="ERROR"/>
     </logger>
      <logger name=" httpclient.wire.content">
-        <level value="DEBUG"/>
+        <level value="ERROR"/>
     </logger>
     
     
     <logger name="org.springframework">
-        <level value="DEBUG"/>
+        <level value="ERROR"/>
     </logger>
     
-     <logger name="org.springframework.security.jwt">
-        <level value="DEBUG"/>
-    </logger>
     
-     <logger name="org.springframework.security.oauth2">
-        <level value="DEBUG"/>
-    </logger>
 
     <logger name="com.dhenton9000">
         <level value="DEBUG"/>
