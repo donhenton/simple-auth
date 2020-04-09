@@ -1,2 +1,16 @@
 /nbactions.xml
 /target
+src/main/webapp/WEB-INF/classes/
+src/main/webapp/WEB-INF/lib/
+/test.log
+target/
+**/.DS_Store
+.DS_Store
+/node_modules/
+/logfile
+.idea
+SpringMVC3-app.iml
+nbactions.xml
+/src/main/resources/config.properties
+/nbactions.tmp
+/DEV_HOME_IS_UNDEFINED/
