@@ -24,7 +24,7 @@ public class HomePageController {
 	@RequestMapping("/home")
 	public ModelAndView homePage() {
 		String message = "Hello World, Spring 3.0!";
-		return new ModelAndView("tiles.homepage", "message", message);
+		return new ModelAndView("tiles.login", "message", message);
 	}
 	
 	@RequestMapping("/credits")

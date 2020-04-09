@@ -3,16 +3,17 @@
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt"%>
 <%@ taglib uri="/WEB-INF/tld/spring.tld" prefix="spring"%>
 <%@ taglib uri="/WEB-INF/tld/spring-form.tld" prefix="form"%>
+<%@ taglib prefix="sec" uri="http://www.springframework.org/security/tags" %>
 
-
-<c:url var="baseURL" value="/app/" />
+<c:url var="baseURL" value="/" />
+<c:url value="/logout" var="logoutUrl"/>
 <%
 
     String path = request.getContextPath();
     String basePath = request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + path + "/";
 
 %>
-
+<!DOCTYPE html>
 <html>
     <head>
         <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
@@ -29,7 +30,7 @@
         </style>
         <link rel="stylesheet" href="resources/css/bootstrap-theme.min.css">
         <link rel="stylesheet" href="resources/css/main.css">
-
+        
         <script src="resources/js/vendor/jquery-1.11.0.js"></script>	
         <script type="text/javascript" src="resources/js/vendor/bootstrap.min.js"></script>
         <script src="resources/js/vendor/modernizr-2.6.2-respond-1.1.0.min.js"></script>
@@ -40,9 +41,30 @@
             <div class="row clearfix">
                 <div class="col-md-12 column">
                     <ul class="nav nav-tabs">
-                        <li class="active">
-                            <a href="<c:out value="${baseURL}home.html"/>">Home</a>
+                        <li>
+                            <a href="<c:out value="${baseURL}"/>">Home</a>
                         </li>
+                        
+                        
+                        <sec:authorize access="isFullyAuthenticated()">
+                            <li class="pull-right">
+                                <a href="<c:out value="${logoutUrl}"/>">Logout</a>
+                            </li>
+                            <li class="pull-right">
+                                <a href="secured/admins">Admins Role Page</a>
+                            </li>
+                            <li class="pull-right">
+                                <a href="secured/service">Service Role Page</a>
+                            </li>
+                            <li class="pull-right">
+                                <a href="secured/tokens">Tokens</a>
+                            </li>
+                           
+                        </sec:authorize>
+                        
+                    </ul>
+                        
+                        <!--
                         <li>
                             <a href="#">Profile</a>
                         </li>
@@ -69,22 +91,23 @@
                             </ul>
                         </li>
                     </ul>
-                    <div class="page-header">
-                        <h1>
-                            <tiles:getAsString name="title" />
-                        </h1>
-                    </div>
-                    <div class="panel panel-default">
-                        <div class="panel-heading">
-                            <h3 class="panel-title">
-                                <tiles:getAsString name="subTitle" />
-                            </h3>
+                        -->
+                        <div class="page-header">
+                            <h1>
+                                <tiles:getAsString name="title" />
+                            </h1>
                         </div>
-                        <div class="panel-body">
-                            <tiles:insertAttribute name="body" />  
-                        </div>
+                        <div class="panel panel-default">
+                            <div class="panel-heading">
+                                <h3 class="panel-title">
+                                    <tiles:getAsString name="subTitle" />
+                                </h3>
+                            </div>
+                            <div class="panel-body">
+                                <tiles:insertAttribute name="body" />  
+                            </div>
 
-                    </div>
+                        </div>
                 </div>
             </div>
         </div>
