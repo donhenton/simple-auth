@@ -1,6 +1,5 @@
 package com.dhenton9000.spring.mvc.controllers;
 
-
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 import java.util.Arrays;
@@ -87,9 +86,7 @@ public class HomePageController {
         sb.append("?");
         sb.append("client_id=");
         sb.append(clientId);
-        sb.append("&response_type=code&scope=openid offline_access");
-
-        //sb.append("openid offline groups email profile");
+        sb.append("&response_type=code&scope=openid offline_access groups profile");
         sb.append("&redirect_uri=");
         sb.append(redirectUri);
         sb.append("&state=");
@@ -108,26 +105,13 @@ public class HomePageController {
 
         model.addAttribute("code", code);
         model.addAttribute("state", state);
+        String issuer = env.getProperty("issuer");
 
-        /*
-        
-        
-        curl --request POST \
-  --url https://${yourOktaDomain}/oauth2/default/v1/token \
-  --header 'accept: application/json' \
-  --header 'authorization: Basic MG9hY...' \
-  --header 'content-type: application/x-www-form-urlencoded' \
-  --data 'grant_type=authorization_code&redirect_uri=http%3A%2F%2Flocalhost%3A8080&code=P59yPm1_X1gxtdEOEZjn'
-        
-        
-        
-        
-         */
         String storedState = sessionState.getState();
         if (storedState != null && storedState.equals(state)) {
             sessionState.setState(null);
             String clientId = env.getProperty("client-id");
-            String issuer = env.getProperty("issuer");
+
             String clientSecret = env.getProperty("client-secret");
             String originalInput = clientId + ":" + clientSecret;
             String authString = Base64.getEncoder().encodeToString(originalInput.getBytes());
@@ -150,21 +134,51 @@ public class HomePageController {
 
             if (postResponse.getStatusCode().equals(HttpStatus.OK)) {
                 Map result = postResponse.getBody();
+                sessionState.setAccessToken((String) result.get("access_token"));
+                sessionState.setRefreshToken((String) result.get("refresh_token"));
+                sessionState.setIdToken((String) result.get("id_token"));
+                int time = (Integer) result.get("expires_in");
+
+                sessionState.setExpiresSeconds(time);
                 result.keySet().forEach(k -> {
 
-                    log.debug("key " + k + " " + result.get(k));
+                    log.debug("user key " + k + " " + result.get(k));
 
                 });
 
             } else {
-                log.error("Errored with code " + postResponse.getStatusCode());
+                log.error("token call Errored with code " + postResponse.getStatusCode());
             }
 
-            return "tiles.process";
+         
+
         } else {
             throw new RuntimeException("state not found");
         }
+        /////////////////////////////////////////////////////////////////////////////
+         
 
+        String userUri = issuer + "/oauth2/v1/userinfo";
+        HttpHeaders httpHeaders = new HttpHeaders();
+        httpHeaders.setAccept(Arrays.asList(MediaType.APPLICATION_JSON));
+        httpHeaders.setBearerAuth(sessionState.getAccessToken());
+        HttpEntity<Object> userEntity = new HttpEntity<>(httpHeaders);
+
+        ResponseEntity<Map> getResponse = restTemplate.exchange(userUri, HttpMethod.POST, userEntity, Map.class);
+
+        if (getResponse.getStatusCode().equals(HttpStatus.OK)) {
+            Map result = getResponse.getBody();
+              log.debug("\n@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n" );
+              log.debug("\n"+sessionState.getAccessToken()+"\n");
+             result.keySet().forEach(k -> {
+
+               log.debug("key " + k + " " + result.get(k));
+              });
+        } else {
+            log.error("user info Errored with code " + getResponse.getStatusCode());
+        }
+
+        return "tiles.process";
     }
 
     @ModelAttribute("sessionholder")
@@ -173,3 +187,33 @@ public class HomePageController {
     }
 
 }
+
+
+/*
+            String userUri = issuer + "/oauth2/v1/userinfo";
+            httpHeaders = new HttpHeaders();       
+            httpHeaders.setAccept(Arrays.asList(MediaType.APPLICATION_JSON));
+            httpHeaders.setBearerAuth(sessionState.getAccessToken());
+             HttpEntity<Object> userEntity = new HttpEntity<>(httpHeaders);
+           
+            userEntity.getHeaders().keySet().forEach(k -> {
+
+                    log.debug("key " + k + " " + userEntity.getHeaders().get(k));
+
+                });
+            ResponseEntity<Map> getResponse = restTemplate.exchange(userUri, HttpMethod.GET, userEntity, Map.class);
+
+            if (getResponse.getStatusCode().equals(HttpStatus.OK)) {
+                Map result = getResponse.getBody();
+               // result.keySet().forEach(k -> {
+
+                  //  log.debug("key " + k + " " + result.get(k));
+
+               // });
+ 
+              } else {
+                log.error("user info Errored with code " + postResponse.getStatusCode());
+            }
+            return "tiles.process";
+        
+ */
