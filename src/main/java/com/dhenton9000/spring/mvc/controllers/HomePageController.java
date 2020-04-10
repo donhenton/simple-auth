@@ -2,6 +2,10 @@ package com.dhenton9000.spring.mvc.controllers;
 
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.Map;
@@ -16,6 +20,8 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.crypto.keygen.Base64StringKeyGenerator;
+import org.springframework.security.crypto.keygen.StringKeyGenerator;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.util.LinkedMultiValueMap;
@@ -38,6 +44,8 @@ import org.springframework.web.servlet.ModelAndView;
 public class HomePageController {
 
     private static Logger log = LoggerFactory.getLogger(HomePageController.class);
+    private final StringKeyGenerator secureKeyGenerator
+            = new Base64StringKeyGenerator(Base64.getUrlEncoder().withoutPadding(), 96);
     @Autowired
     private Environment env;
     @Autowired
@@ -45,12 +53,80 @@ public class HomePageController {
 
     @RequestMapping("/home")
     public ModelAndView homePage() {
-        String url = "/app/getauth.html";
-        return new ModelAndView("tiles.home", "url", url);
+        String urlCodeAuth = "/app/getauth.html";
+        String urlPKCE = "/app/getPKCE.html";
+        ModelAndView m = new ModelAndView("tiles.home");
+        m.addObject("urlCodeAuth", urlCodeAuth);
+        m.addObject("urlPKCE", urlPKCE);
+        return m;
     }
 
     /**
-     * compose the referral to okta
+     * compose the referral to okta code code authorization flow.
+     *
+     *
+     * @param sessionState
+     * @return
+     */
+    @RequestMapping("/getPKCE")
+    public String getPKCE(@ModelAttribute("sessionholder") SessionStateHolder sessionState) {
+
+        String clientId = env.getProperty("client-id-pkce"); // points to spa app
+        //note that env can be overriden by command line environment assignments
+        //and is part of the spring boot system of parameter use
+
+        String issuer = env.getProperty("issuer");
+        String authorizationUri = issuer + "/oauth2/v1/authorize";
+        StringBuilder sb = new StringBuilder();
+        sb.append("redirect:");
+        sb.append(authorizationUri);
+
+        String nonce = UUID.randomUUID().toString();
+        String state = UUID.randomUUID().toString();
+        String challenge = null;
+
+        try {
+            //SecureRandom sr = new SecureRandom();
+            // byte[] code = new byte[32];
+            // sr.nextBytes(code);
+            String verifier = this.secureKeyGenerator.generateKey();
+            sessionState.setpKCEverifier(verifier);
+
+            challenge = createHash(verifier);
+
+        } catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException("digest problem " + e.getClass().getName()
+                    + " " + e.getMessage());
+        }
+
+        String redirectUri = env.getProperty("redirect-uri-pkce");
+        redirectUri = redirectUri.trim();
+        try {
+            redirectUri = URLEncoder.encode(redirectUri, "UTF-8");
+        } catch (UnsupportedEncodingException ex) {
+            log.error("cannot peform url encode ");
+        }
+
+        sb.append("?");
+        sb.append("client_id=");
+        sb.append(clientId);
+        sb.append("&response_type=code&scope=openid offline_access groups profile");
+        sb.append("&redirect_uri=");
+        sb.append(redirectUri);
+        sb.append("&code_challenge=");
+        sb.append(challenge);
+        sb.append("&code_challenge_method=S256");
+        sb.append("&state=");
+        sb.append(state);
+        sb.append("&nonce=");
+        sb.append(nonce);
+
+        return sb.toString();
+    }
+
+    /**
+     * compose the referral to okta code code authorization flow.
+     *
      *
      * @param sessionState
      * @return
@@ -58,7 +134,6 @@ public class HomePageController {
     @RequestMapping("/getauth")
     public String getAuth(@ModelAttribute("sessionholder") SessionStateHolder sessionState) {
         String clientId = env.getProperty("client-id");
-        log.debug("clientId " + clientId);
         //note that env can be overriden by command line environment assignments
         //and is part of the spring boot system of parameter use
 
@@ -86,12 +161,12 @@ public class HomePageController {
         sb.append("?");
         sb.append("client_id=");
         sb.append(clientId);
-        sb.append("&response_type=code&scope=openid offline_access groups profile");
+        sb.append("&response_type=code&scope=openid email groups profile");
         sb.append("&redirect_uri=");
         sb.append(redirectUri);
         sb.append("&state=");
         sb.append(state);
-        sb.append("&nonce");
+        sb.append("&nonce=");
         sb.append(nonce);
 
         return sb.toString();
@@ -150,13 +225,10 @@ public class HomePageController {
                 log.error("token call Errored with code " + postResponse.getStatusCode());
             }
 
-         
-
         } else {
             throw new RuntimeException("state not found");
         }
         /////////////////////////////////////////////////////////////////////////////
-         
 
         String userUri = issuer + "/oauth2/v1/userinfo";
         HttpHeaders httpHeaders = new HttpHeaders();
@@ -168,14 +240,86 @@ public class HomePageController {
 
         if (getResponse.getStatusCode().equals(HttpStatus.OK)) {
             Map result = getResponse.getBody();
-              log.debug("\n@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n" );
-              log.debug("\n"+sessionState.getAccessToken()+"\n");
-             result.keySet().forEach(k -> {
+            log.debug("\n@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n");
+            log.debug("\n" + sessionState.getAccessToken() + "\n");
+            result.keySet().forEach(k -> {
 
-               log.debug("key " + k + " " + result.get(k));
-              });
+                log.debug("key " + k + " " + result.get(k));
+            });
         } else {
             log.error("user info Errored with code " + getResponse.getStatusCode());
+        }
+
+        return "tiles.process";
+    }
+
+    /**
+     * this actually points to an okta app configured for SPA stuff.
+     * @param model
+     * @param code
+     * @param state
+     * @param sessionState
+     * @return 
+     */
+    @RequestMapping("/processPKCE")
+    public String doProcessPKCE(Model model,
+            @RequestParam String code,
+            @RequestParam String state,
+            @ModelAttribute("sessionholder") SessionStateHolder sessionState) {
+        log.debug("\n@@@@@@@@@@@@@@@PKCE PROCESS@@@@@@@@@@@@@@@@@@@@@@\n");
+        model.addAttribute("code", code);
+        model.addAttribute("state", state);
+        String issuer = env.getProperty("issuer");
+
+        String storedState = sessionState.getState();
+        String verifier = sessionState.getpKCEverifier();
+        if (storedState != null && storedState.equals(state)) {
+            sessionState.setState(null);
+            String clientId = env.getProperty("client-id-pkce");
+            String tokenUri = issuer + "/oauth2/v1/token";
+//
+//            String clientSecret = env.getProperty("client-secret");
+//            String originalInput = clientId + ":" + clientSecret;
+//            String authString = Base64.getEncoder().encodeToString(originalInput.getBytes());
+//            
+            HttpHeaders httpHeaders = new HttpHeaders();
+            httpHeaders.setAccept(Arrays.asList(MediaType.APPLICATION_JSON));
+            //   httpHeaders.setBasicAuth(authString);
+            httpHeaders.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+
+            String redirectUri = env.getProperty("redirect-uri-pkce");
+            redirectUri = redirectUri.trim();
+            MultiValueMap<String, String> map = new LinkedMultiValueMap<>();
+            map.add("grant_type", "authorization_code");
+            map.add("redirect_uri", redirectUri);
+            map.add("code", code);
+            map.add("client_id", clientId);
+            map.add("code_verifier", verifier);
+
+            HttpEntity<MultiValueMap<String, String>> entity = new HttpEntity<>(map, httpHeaders);
+
+            ResponseEntity<Map> postResponse = restTemplate.exchange(tokenUri, HttpMethod.POST, entity, Map.class);
+
+            if (postResponse.getStatusCode().equals(HttpStatus.OK)) {
+                Map result = postResponse.getBody();
+                sessionState.setAccessToken((String) result.get("access_token"));
+                sessionState.setRefreshToken((String) result.get("refresh_token"));
+                sessionState.setIdToken((String) result.get("id_token"));
+                int time = (Integer) result.get("expires_in");
+
+                sessionState.setExpiresSeconds(time);
+                result.keySet().forEach(k -> {
+
+                    log.debug("user key " + k + " " + result.get(k));
+
+                });
+
+            } else {
+                log.error("PKCE token call Errored with code " + postResponse.getStatusCode());
+            }
+
+        } else {
+            throw new RuntimeException("state not found");
         }
 
         return "tiles.process";
@@ -186,9 +330,13 @@ public class HomePageController {
         return new SessionStateHolder();
     }
 
+    private static String createHash(String value) throws NoSuchAlgorithmException {
+        MessageDigest md = MessageDigest.getInstance("SHA-256");
+        byte[] digest = md.digest(value.getBytes(StandardCharsets.US_ASCII));
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(digest);
+    }
+
 }
-
-
 /*
             String userUri = issuer + "/oauth2/v1/userinfo";
             httpHeaders = new HttpHeaders();       

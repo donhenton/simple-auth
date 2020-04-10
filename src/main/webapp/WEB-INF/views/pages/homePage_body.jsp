@@ -8,17 +8,15 @@
     <hr>
     <div class="row">
         <div class="col-xs-12">
-            <div class="center-block" style="width: 240px">
+            <div class="center-block">
                 <div class="text-center">
-			 
-                        
-                        
-
-                        <h3>  <a  class="label label-primary" href="<c:out value="${url}"/>">Sign In</a> </h3>
-                     
-                        
-		</div>
-            </div>
+                        <h3>  <a  class="label label-primary" href="<c:out value="${urlCodeAuth}"/>">Sign In With Code Authorization</a> </h3>
+  		</div>
+                <div class="text-center">
+                        <h3>  <a  class="label label-primary" href="<c:out value="${urlPKCE}"/>">Sign In With PKCE</a> </h3>
+  		</div>
+ 
+          </div>
         </div>
     </div>
   

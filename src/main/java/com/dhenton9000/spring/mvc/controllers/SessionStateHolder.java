@@ -2,8 +2,6 @@
 
 package com.dhenton9000.spring.mvc.controllers;
 
-import com.sun.syndication.io.impl.Base64;
-
  
 public class SessionStateHolder {
     
@@ -12,6 +10,7 @@ public class SessionStateHolder {
     private String accessToken;
     private String refreshToken;
     private int expiresSeconds;
+    private String pKCEverifier;
 
     /**
      * @return the state
@@ -90,6 +89,20 @@ public class SessionStateHolder {
         
        // return Base64.decode(this.getAccessToken());
        return "fred";
+    }
+
+    /**
+     * @return the pKCEverifier
+     */
+    public String getpKCEverifier() {
+        return pKCEverifier;
+    }
+
+    /**
+     * @param pKCEverifier the pKCEverifier to set
+     */
+    public void setpKCEverifier(String pKCEverifier) {
+        this.pKCEverifier = pKCEverifier;
     }
     
     
