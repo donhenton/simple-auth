@@ -375,23 +375,7 @@
             </exclusions>
         </dependency>
         
-        <dependency>
-            <groupId>org.springframework.security.oauth.boot</groupId>
-            <artifactId>spring-security-oauth2-autoconfigure</artifactId>
-            <version>2.1.0.RELEASE</version>
-        </dependency>
-<!--        <dependency>
-            <groupId>com.okta.spring</groupId>
-            <artifactId>okta-spring-boot-starter</artifactId>
-            <version>1.4.0</version>
-        </dependency> -->
-        <dependency>
-            <groupId>org.springframework.security.oauth</groupId>
-            <artifactId>spring-security-oauth2</artifactId>
-            <version>2.0.14.RELEASE</version>
-            <type>jar</type>
-        </dependency>
-        
+      
            
         
         <dependency>
