@@ -10,6 +10,8 @@ import java.util.Arrays;
 import java.util.Base64;
 import java.util.Map;
 import java.util.UUID;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -110,7 +112,7 @@ public class HomePageController {
         sb.append("?");
         sb.append("client_id=");
         sb.append(clientId);
-        sb.append("&response_type=code&scope=openid offline_access groups profile");
+        sb.append("&response_type=code&scope=openid email groups profile");
         sb.append("&redirect_uri=");
         sb.append(redirectUri);
         sb.append("&code_challenge=");
@@ -161,7 +163,7 @@ public class HomePageController {
         sb.append("?");
         sb.append("client_id=");
         sb.append(clientId);
-        sb.append("&response_type=code&scope=openid email groups profile");
+        sb.append("&response_type=code&scope=openid offline_access email groups profile");
         sb.append("&redirect_uri=");
         sb.append(redirectUri);
         sb.append("&state=");
@@ -265,11 +267,23 @@ public class HomePageController {
     public String doProcessPKCE(Model model,
             @RequestParam String code,
             @RequestParam String state,
+            HttpServletRequest request,
+            HttpServletResponse response,
             @ModelAttribute("sessionholder") SessionStateHolder sessionState) {
         log.debug("\n@@@@@@@@@@@@@@@PKCE PROCESS@@@@@@@@@@@@@@@@@@@@@@\n");
         model.addAttribute("code", code);
         model.addAttribute("state", state);
         String issuer = env.getProperty("issuer");
+        
+        Arrays.asList(request.getCookies()).forEach(c -> {
+            
+            log.debug("cookie "+c.getName()+ " ==> "+c.getValue());
+            
+        });
+        
+        
+        
+        
 
         String storedState = sessionState.getState();
         String verifier = sessionState.getpKCEverifier();
@@ -283,6 +297,11 @@ public class HomePageController {
 //            String authString = Base64.getEncoder().encodeToString(originalInput.getBytes());
 //            
             HttpHeaders httpHeaders = new HttpHeaders();
+            httpHeaders.add("user-agent", "Macintosh; Intel Mac OS X 10_14_6) "
+                    + "AppleWebKit/537.36 (KHTML, like Gecko) "
+                    + "Chrome/80.0.3987.163 Safari/537.36");
+            httpHeaders.add("x-okta-user-agent-extended", "okta-auth-js-3.0.1");
+    
             httpHeaders.setAccept(Arrays.asList(MediaType.APPLICATION_JSON));
             //   httpHeaders.setBasicAuth(authString);
             httpHeaders.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
@@ -295,7 +314,7 @@ public class HomePageController {
             map.add("code", code);
             map.add("client_id", clientId);
             map.add("code_verifier", verifier);
-
+          
             HttpEntity<MultiValueMap<String, String>> entity = new HttpEntity<>(map, httpHeaders);
 
             ResponseEntity<Map> postResponse = restTemplate.exchange(tokenUri, HttpMethod.POST, entity, Map.class);

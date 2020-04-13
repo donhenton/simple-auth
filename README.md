@@ -8,4 +8,3 @@ The OKTA apps for need to be configured differently:
 
 * authorization_code flow --- web application
 * PKCE --- SPA app
-
