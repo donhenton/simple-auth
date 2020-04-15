@@ -77,14 +77,16 @@ public class HomePageController {
         //note that env can be overriden by command line environment assignments
         //and is part of the spring boot system of parameter use
 
-        String issuer = env.getProperty("issuer");
-        String authorizationUri = issuer  + "/oauth2/default/v1/authorize";
-        StringBuilder sb = new StringBuilder();
-        sb.append("redirect:");
-        sb.append(authorizationUri);
+        String redirectUri = env.getProperty("redirect-uri-pkce");
+        redirectUri = redirectUri.trim();
+        try {
+            redirectUri = URLEncoder.encode(redirectUri, "UTF-8");
+        } catch (UnsupportedEncodingException ex) {
+            log.error("cannot peform url encode ");
+        }
 
-        String nonce = UUID.randomUUID().toString();
-        String state = UUID.randomUUID().toString();
+        StringBuilder sb = createBaseRedirect(clientId, redirectUri, sessionState);
+
         String challenge = null;
 
         try {
@@ -101,29 +103,34 @@ public class HomePageController {
                     + " " + e.getMessage());
         }
 
-        String redirectUri = env.getProperty("redirect-uri-pkce");
-        redirectUri = redirectUri.trim();
-        try {
-            redirectUri = URLEncoder.encode(redirectUri, "UTF-8");
-        } catch (UnsupportedEncodingException ex) {
-            log.error("cannot peform url encode ");
-        }
+        sb.append("&code_challenge=");
+        sb.append(challenge);
+        sb.append("&code_challenge_method=S256");
 
+        return sb.toString();
+    }
+
+    private StringBuilder createBaseRedirect(String clientId, String redirectUri, SessionStateHolder sessionState) {
+        String issuer = env.getProperty("issuer");
+        String authorizationUri = issuer + "/oauth2/default/v1/authorize";
+        StringBuilder sb = new StringBuilder();
+        sb.append("redirect:");
+        sb.append(authorizationUri);
+        String nonce = UUID.randomUUID().toString();
+        String state = UUID.randomUUID().toString();
+        sessionState.setState(state);
         sb.append("?");
         sb.append("client_id=");
         sb.append(clientId);
         sb.append("&response_type=code&scope=openid email groups profile");
         sb.append("&redirect_uri=");
         sb.append(redirectUri);
-        sb.append("&code_challenge=");
-        sb.append(challenge);
-        sb.append("&code_challenge_method=S256");
         sb.append("&state=");
         sb.append(state);
         sb.append("&nonce=");
         sb.append(nonce);
 
-        return sb.toString();
+        return sb;
     }
 
     /**
@@ -139,18 +146,6 @@ public class HomePageController {
         //note that env can be overriden by command line environment assignments
         //and is part of the spring boot system of parameter use
 
-        String clientSecret = env.getProperty("client-secret");
-        String issuer = env.getProperty("issuer");
-        ///oauth2/v1/authorize is legit as a authorizationUri
-        //BUT WILL NOT PRODUCE FAT TOKENS WITH GROUPS AND SUCH
-        String authorizationUri = issuer  + "/oauth2/default/v1/authorize";
-        String jwkUri = issuer + "/oauth2/v1/keys";
-      //  String userInfoUri = issuer + "/oauth2/v1/userinfo";
-        String nonce = UUID.randomUUID().toString();
-        String state = UUID.randomUUID().toString();
-
-        sessionState.setState(state);
-
         String redirectUri = env.getProperty("redirect-uri");
         redirectUri = redirectUri.trim();
         try {
@@ -158,20 +153,8 @@ public class HomePageController {
         } catch (UnsupportedEncodingException ex) {
             log.error("cannot peform url encode ");
         }
-        StringBuilder sb = new StringBuilder();
-        sb.append("redirect:");
-        sb.append(authorizationUri);
 
-        sb.append("?");
-        sb.append("client_id=");
-        sb.append(clientId);
-        sb.append("&response_type=code&scope=openid offline_access email groups profile");
-        sb.append("&redirect_uri=");
-        sb.append(redirectUri);
-        sb.append("&state=");
-        sb.append(state);
-        sb.append("&nonce=");
-        sb.append(nonce);
+        StringBuilder sb = createBaseRedirect(clientId, redirectUri, sessionState);
 
         return sb.toString();
     }
@@ -215,11 +198,9 @@ public class HomePageController {
                 sessionState.setRefreshToken((String) result.get("refresh_token"));
                 sessionState.setIdToken((String) result.get("id_token"));
 
-  
                 int time = (Integer) result.get("expires_in");
 
                 sessionState.setExpiresSeconds(time);
-                 
 
             } else {
                 log.error("token call Errored with code " + postResponse.getStatusCode());
@@ -241,18 +222,17 @@ public class HomePageController {
         if (getResponse.getStatusCode().equals(HttpStatus.OK)) {
             Map result = getResponse.getBody();
             model.addAttribute("userInfo", result);
-            
-           // log.debug("\n@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n");
-           // log.debug("\n" + sessionState.getAccessToken() + "\n");
-           // result.keySet().forEach(k -> {
 
+            // log.debug("\n@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n");
+            // log.debug("\n" + sessionState.getAccessToken() + "\n");
+            // result.keySet().forEach(k -> {
             //    log.debug("key " + k + " " + result.get(k));
-           // });
+            // });
         } else {
             log.error("user info Errored with code " + getResponse.getStatusCode());
         }
-              model.addAttribute("accessToken", sessionState.getAccessToken());
-                model.addAttribute("idToken", sessionState.getIdToken());
+        model.addAttribute("accessToken", sessionState.getAccessToken());
+        model.addAttribute("idToken", sessionState.getIdToken());
 
         return "tiles.process";
     }
