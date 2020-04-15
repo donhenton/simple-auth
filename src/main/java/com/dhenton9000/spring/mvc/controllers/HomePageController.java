@@ -1,5 +1,7 @@
 package com.dhenton9000.spring.mvc.controllers;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -10,6 +12,7 @@ import java.util.Arrays;
 import java.util.Base64;
 import java.util.Map;
 import java.util.UUID;
+import java.util.logging.Level;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
@@ -32,6 +35,7 @@ import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.SessionAttributes;
+import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.servlet.ModelAndView;
 
@@ -122,7 +126,7 @@ public class HomePageController {
         sb.append("?");
         sb.append("client_id=");
         sb.append(clientId);
-        sb.append("&response_type=code&scope=openid email groups profile");
+        sb.append("&response_type=code&scope=openid offline_access email groups profile");
         sb.append("&redirect_uri=");
         sb.append(redirectUri);
         sb.append("&state=");
@@ -210,7 +214,12 @@ public class HomePageController {
             throw new RuntimeException("state not found");
         }
         /////////////////////////////////////////////////////////////////////////////
+        getUserInfo(issuer, sessionState, model);
 
+        return "tiles.process";
+    }
+
+    private void getUserInfo(String issuer, SessionStateHolder sessionState, Model model) throws RestClientException {
         String userUri = issuer + "/oauth2/default/v1/userinfo";
         HttpHeaders httpHeaders = new HttpHeaders();
         httpHeaders.setAccept(Arrays.asList(MediaType.APPLICATION_JSON));
@@ -222,19 +231,32 @@ public class HomePageController {
         if (getResponse.getStatusCode().equals(HttpStatus.OK)) {
             Map result = getResponse.getBody();
             model.addAttribute("userInfo", result);
-
-            // log.debug("\n@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n");
-            // log.debug("\n" + sessionState.getAccessToken() + "\n");
-            // result.keySet().forEach(k -> {
-            //    log.debug("key " + k + " " + result.get(k));
-            // });
         } else {
             log.error("user info Errored with code " + getResponse.getStatusCode());
         }
         model.addAttribute("accessToken", sessionState.getAccessToken());
         model.addAttribute("idToken", sessionState.getIdToken());
+        model.addAttribute("refreshToken", sessionState.getRefreshToken());
 
-        return "tiles.process";
+        ObjectMapper m = new ObjectMapper();
+
+        String token = sessionState.getAccessToken().split("\\.")[1];
+        byte[] tokenBytes = Base64.getDecoder().decode(token);
+        
+       
+        try {
+            token = new String(tokenBytes,"UTF-8");
+          //  log.debug("\n@@@@@@@\n"+token+"\n@@@@@@\n");
+            Map accessTokenData = m.readValue(token, Map.class);
+            Object groups = accessTokenData.get("groups");
+          //  log.debug(groups.getClass().getName());
+
+            model.addAttribute("groups", groups);
+        } catch (JsonProcessingException ex) {
+            log.error("cannot parse accessToken");
+        } catch (UnsupportedEncodingException ex) {
+           log.error("cannot handle encoding");
+        }
     }
 
     /**
@@ -254,8 +276,6 @@ public class HomePageController {
             HttpServletResponse response,
             @ModelAttribute("sessionholder") SessionStateHolder sessionState) {
         log.debug("\n@@@@@@@@@@@@@@@PKCE PROCESS@@@@@@@@@@@@@@@@@@@@@@\n");
-        model.addAttribute("code", code);
-        model.addAttribute("state", state);
         String issuer = env.getProperty("issuer");
 
         Arrays.asList(request.getCookies()).forEach(c -> {
@@ -270,16 +290,8 @@ public class HomePageController {
             sessionState.setState(null);
             String clientId = env.getProperty("client-id-pkce");
             String tokenUri = issuer + "/oauth2/default/v1/token";
-//
-//            String clientSecret = env.getProperty("client-secret");
-//            String originalInput = clientId + ":" + clientSecret;
-//            String authString = Base64.getEncoder().encodeToString(originalInput.getBytes());
-//            
+
             HttpHeaders httpHeaders = new HttpHeaders();
-            httpHeaders.add("user-agent", "Macintosh; Intel Mac OS X 10_14_6) "
-                    + "AppleWebKit/537.36 (KHTML, like Gecko) "
-                    + "Chrome/80.0.3987.163 Safari/537.36");
-            httpHeaders.add("x-okta-user-agent-extended", "okta-auth-js-3.0.1");
 
             httpHeaders.setAccept(Arrays.asList(MediaType.APPLICATION_JSON));
             //   httpHeaders.setBasicAuth(authString);
@@ -306,11 +318,6 @@ public class HomePageController {
                 int time = (Integer) result.get("expires_in");
 
                 sessionState.setExpiresSeconds(time);
-                result.keySet().forEach(k -> {
-
-                    log.debug("user key " + k + " " + result.get(k));
-
-                });
 
             } else {
                 log.error("PKCE token call Errored with code " + postResponse.getStatusCode());
@@ -319,7 +326,7 @@ public class HomePageController {
         } else {
             throw new RuntimeException("state not found");
         }
-
+        getUserInfo(issuer, sessionState, model);
         return "tiles.process";
     }
 
@@ -335,31 +342,3 @@ public class HomePageController {
     }
 
 }
-/*
-            String userUri = issuer + "/oauth2/v1/userinfo";
-            httpHeaders = new HttpHeaders();       
-            httpHeaders.setAccept(Arrays.asList(MediaType.APPLICATION_JSON));
-            httpHeaders.setBearerAuth(sessionState.getAccessToken());
-             HttpEntity<Object> userEntity = new HttpEntity<>(httpHeaders);
-           
-            userEntity.getHeaders().keySet().forEach(k -> {
-
-                    log.debug("key " + k + " " + userEntity.getHeaders().get(k));
-
-                });
-            ResponseEntity<Map> getResponse = restTemplate.exchange(userUri, HttpMethod.GET, userEntity, Map.class);
-
-            if (getResponse.getStatusCode().equals(HttpStatus.OK)) {
-                Map result = getResponse.getBody();
-               // result.keySet().forEach(k -> {
-
-                  //  log.debug("key " + k + " " + result.get(k));
-
-               // });
- 
-              } else {
-                log.error("user info Errored with code " + postResponse.getStatusCode());
-            }
-            return "tiles.process";
-        
- */

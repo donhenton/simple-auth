@@ -12,7 +12,7 @@
                    <h2>Access Token</h2>
             </div>
             <div class="col-xs-6">
-               <h2>Id Token</h2>
+               <h2>Groups</h2>
             </div>
         </div>
 
@@ -28,11 +28,11 @@
             <div class="col-xs-6">
 
                     <div>
-
-
-                            <textarea cols="70" rows="10">${idToken}</textarea>
+                        <c:forEach items="${groups}" var="g">
+                         <li><c:out value="${g}" />  </li>
+                         </c:forEach>
                     </div>
-
+                    <div><b>Refresh Token:</b> ${refreshToken}</div>
             </div>
         </div>
 
