@@ -11,4 +11,4 @@ The OKTA apps for need to be configured differently:
 
 
 ## Fat Token/Thin Token
-https://support.okta.com/help/s/article/Okta-Groups-or-Attribute-Missing-from-Id-Token
+https://support.okta.com/help/s/article/Difference-Between-Okta-as-An-Authorization-Server-vs-Custom-Authorization-Server
