@@ -78,7 +78,7 @@ public class HomePageController {
         //and is part of the spring boot system of parameter use
 
         String issuer = env.getProperty("issuer");
-        String authorizationUri = issuer + "/oauth2/v1/authorize";
+        String authorizationUri = issuer  + "/oauth2/default/v1/authorize";
         StringBuilder sb = new StringBuilder();
         sb.append("redirect:");
         sb.append(authorizationUri);
@@ -141,9 +141,11 @@ public class HomePageController {
 
         String clientSecret = env.getProperty("client-secret");
         String issuer = env.getProperty("issuer");
-        String authorizationUri = issuer + "/oauth2/v1/authorize";
+        ///oauth2/v1/authorize is legit as a authorizationUri
+        //BUT WILL NOT PRODUCE FAT TOKENS WITH GROUPS AND SUCH
+        String authorizationUri = issuer  + "/oauth2/default/v1/authorize";
         String jwkUri = issuer + "/oauth2/v1/keys";
-        String userInfoUri = issuer + "/oauth2/v1/userinfo";
+      //  String userInfoUri = issuer + "/oauth2/v1/userinfo";
         String nonce = UUID.randomUUID().toString();
         String state = UUID.randomUUID().toString();
 
@@ -180,8 +182,6 @@ public class HomePageController {
             @RequestParam String state,
             @ModelAttribute("sessionholder") SessionStateHolder sessionState) {
 
-        model.addAttribute("code", code);
-        model.addAttribute("state", state);
         String issuer = env.getProperty("issuer");
 
         String storedState = sessionState.getState();
@@ -192,7 +192,7 @@ public class HomePageController {
             String clientSecret = env.getProperty("client-secret");
             String originalInput = clientId + ":" + clientSecret;
             String authString = Base64.getEncoder().encodeToString(originalInput.getBytes());
-            String tokenUri = issuer + "/oauth2/v1/token";
+            String tokenUri = issuer + "/oauth2/default/v1/token";
             HttpHeaders httpHeaders = new HttpHeaders();
             httpHeaders.setAccept(Arrays.asList(MediaType.APPLICATION_JSON));
             httpHeaders.setBasicAuth(authString);
@@ -214,14 +214,12 @@ public class HomePageController {
                 sessionState.setAccessToken((String) result.get("access_token"));
                 sessionState.setRefreshToken((String) result.get("refresh_token"));
                 sessionState.setIdToken((String) result.get("id_token"));
+
+  
                 int time = (Integer) result.get("expires_in");
 
                 sessionState.setExpiresSeconds(time);
-                result.keySet().forEach(k -> {
-
-                    log.debug("user key " + k + " " + result.get(k));
-
-                });
+                 
 
             } else {
                 log.error("token call Errored with code " + postResponse.getStatusCode());
@@ -232,7 +230,7 @@ public class HomePageController {
         }
         /////////////////////////////////////////////////////////////////////////////
 
-        String userUri = issuer + "/oauth2/v1/userinfo";
+        String userUri = issuer + "/oauth2/default/v1/userinfo";
         HttpHeaders httpHeaders = new HttpHeaders();
         httpHeaders.setAccept(Arrays.asList(MediaType.APPLICATION_JSON));
         httpHeaders.setBearerAuth(sessionState.getAccessToken());
@@ -242,26 +240,31 @@ public class HomePageController {
 
         if (getResponse.getStatusCode().equals(HttpStatus.OK)) {
             Map result = getResponse.getBody();
-            log.debug("\n@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n");
-            log.debug("\n" + sessionState.getAccessToken() + "\n");
-            result.keySet().forEach(k -> {
+            model.addAttribute("userInfo", result);
+            
+           // log.debug("\n@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n");
+           // log.debug("\n" + sessionState.getAccessToken() + "\n");
+           // result.keySet().forEach(k -> {
 
-                log.debug("key " + k + " " + result.get(k));
-            });
+            //    log.debug("key " + k + " " + result.get(k));
+           // });
         } else {
             log.error("user info Errored with code " + getResponse.getStatusCode());
         }
+              model.addAttribute("accessToken", sessionState.getAccessToken());
+                model.addAttribute("idToken", sessionState.getIdToken());
 
         return "tiles.process";
     }
 
     /**
      * this actually points to an okta app configured for SPA stuff.
+     *
      * @param model
      * @param code
      * @param state
      * @param sessionState
-     * @return 
+     * @return
      */
     @RequestMapping("/processPKCE")
     public String doProcessPKCE(Model model,
@@ -274,23 +277,19 @@ public class HomePageController {
         model.addAttribute("code", code);
         model.addAttribute("state", state);
         String issuer = env.getProperty("issuer");
-        
+
         Arrays.asList(request.getCookies()).forEach(c -> {
-            
-            log.debug("cookie "+c.getName()+ " ==> "+c.getValue());
-            
+
+            log.debug("cookie " + c.getName() + " ==> " + c.getValue());
+
         });
-        
-        
-        
-        
 
         String storedState = sessionState.getState();
         String verifier = sessionState.getpKCEverifier();
         if (storedState != null && storedState.equals(state)) {
             sessionState.setState(null);
             String clientId = env.getProperty("client-id-pkce");
-            String tokenUri = issuer + "/oauth2/v1/token";
+            String tokenUri = issuer + "/oauth2/default/v1/token";
 //
 //            String clientSecret = env.getProperty("client-secret");
 //            String originalInput = clientId + ":" + clientSecret;
@@ -301,7 +300,7 @@ public class HomePageController {
                     + "AppleWebKit/537.36 (KHTML, like Gecko) "
                     + "Chrome/80.0.3987.163 Safari/537.36");
             httpHeaders.add("x-okta-user-agent-extended", "okta-auth-js-3.0.1");
-    
+
             httpHeaders.setAccept(Arrays.asList(MediaType.APPLICATION_JSON));
             //   httpHeaders.setBasicAuth(authString);
             httpHeaders.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
@@ -314,7 +313,7 @@ public class HomePageController {
             map.add("code", code);
             map.add("client_id", clientId);
             map.add("code_verifier", verifier);
-          
+
             HttpEntity<MultiValueMap<String, String>> entity = new HttpEntity<>(map, httpHeaders);
 
             ResponseEntity<Map> postResponse = restTemplate.exchange(tokenUri, HttpMethod.POST, entity, Map.class);

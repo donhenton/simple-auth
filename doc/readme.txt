@@ -142,3 +142,25 @@ Okta app must be a SPA app for PKCE to work here.
 https://dev-862436.okta.com/oauth2/default/.well-known/openid-configuration
 
 https://dev-862436.okta.com/oauth2/default/.well-known/oauth-authorization-server
+
+
+## why the tokens dont contain groups
+
+https://support.okta.com/help/s/article/Difference-Between-Okta-as-An-Authorization-Server-vs-Custom-Authorization-Server
+
+You can authorize, get tokens and get user info against two different endpoints:
+
+* oauth2/v1/authorize 
+* oauth2/default/v1/authorize
+* oauth2/default/v1/token
+* oauth2/v1/token
+
+the default word above is oktas authorizationServerId, access codes from auth server can only
+be used for the corresponding token call
+
+the difference between the "no id" and "id" calls is that ID BASED CALLS will
+yield FAT tokens, ie will contain things like custom claims, eg groups
+the other case where the serverId is not specified, are a standard stripped down
+bare bones OIDC, against okta itself, not just 'your stuff'
+
+

@@ -43,6 +43,8 @@ import org.springframework.http.client.ClientHttpRequestInterceptor;
 
 /**
  * https://howtodoinjava.com/spring-boot2/resttemplate/resttemplate-httpclient-java-config/
+ * 
+ * https://stackoverflow.com/questions/22853321/resttemplate-client-with-cookies
  *
  * @author dhenton
  */
