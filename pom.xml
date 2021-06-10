@@ -175,7 +175,7 @@
         <org.springframework.version>5.2.2.RELEASE</org.springframework.version>
         <org.springframework.security-version>5.2.2.RELEASE</org.springframework.security-version>
         <tiles.version>3.0.5</tiles.version>   
-        <jetty.version>9.4.12.v20180830</jetty.version>
+        <jetty.version>9.4.41.v20210516</jetty.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
     <repositories>
